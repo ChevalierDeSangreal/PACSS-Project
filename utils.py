@@ -1,5 +1,23 @@
+from argparse import ArgumentParser
 import torch
+import torch.nn as nn
+import string
 import random
+import time
+import math
+from model import RNN
+from utils import *
+from tqdm import tqdm
+from transformers import GPT2LMHeadModel, AdamW, get_linear_schedule_with_warmup
+from dataset import *
+from transformers import GPT2Tokenizer
+
+def get_rand_line(lines):
+    return random.choice(lines)
+
+
+
+
 
 # Receive a string and return a tensor, where each character in the string is converted to its corresponding index
 def char2tensor(string, char_to_index):
@@ -77,3 +95,50 @@ def gpt_generate_lyrics(prompt, model, tokenizer, device, max_length=100):
     )
 
     return tokenizer.decode(output[0])
+
+
+if __name__ == "__main__":
+
+    num = 10
+
+    parser = ArgumentParser()
+    parser.add_argument('--lr', type=float, default=3e-5)
+    parser.add_argument('--num_layer', type=int, default=1) # The number of hidden layers in the RNN
+    parser.add_argument('--num_epoch', type=int, default=1)
+    parser.add_argument('--hidden_size', type=int, default=100) # The size of hidden layers in RNN
+    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--num_worker', type=int, default=4)
+    parser.add_argument('--data_path', type=str, default="D:\\Software\\Python\\Data\\all_lyrics.txt")
+    parser.add_argument('--model_name', type=str, default="RNN") # This couldn't be changed here
+    parser.add_argument('--chunk_len', type=int, default=128) # The chunk size when using character RNN
+    parser.add_argument('--model_path', type=str, default="D:\\Software\\Python\\PACSS\\project\\gpt2") # The model path of GPT2 when use GPT2
+    parser.add_argument('--sequence_length', type=int, default=50) # GPT uses
+    parser.add_argument('--save_path_gpt2', type=str, default="D:\\Software\\Python\\PACSS\\project\\gpt2.pth") # The path to save the model
+    parser.add_argument('--save_path_RNN', type=str, default="D:\\Software\\Python\\PACSS\\project\\RNN.pth") # The path to save the model
+    parser.add_argument('--use_saved', type=bool, default=True) # True if you used saved model arguments
+    args = parser.parse_args()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    dataset = TextDataset(args)
+    model_RNN = RNN(dataset.n_characters, args.hidden_size, dataset.n_characters, args.num_layer).to(device)
+    model_gpt2 = GPT2LMHeadModel.from_pretrained(args.model_path).to(device)
+    model_gpt2.load_state_dict(torch.load(args.save_path_gpt2))
+    tokenizer = GPT2Tokenizer.from_pretrained(args.model_path)
+
+    with open(args.data_path, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+    lines = [dataset.clean_line(line.strip()) for line in lines if line.strip() and dataset.clean_line(line.strip())]
+
+
+    for i in range(num):
+        ori_line = get_rand_line(lines)
+        input_line = ori_line[:len(ori_line)//2]
+
+        res_RNN = generate(input_line, model_RNN, device, dataset.index_to_char)
+        res_gpt2 = gpt_generate_lyrics(input_line, model_gpt2, tokenizer, device)
+
+        print('-----------Number:', i+1, '-----------')
+        print("Origin sentence: ", ori_line)
+        print("Input sentence: ", input_line)
+        print("RNN output: ", res_RNN)
+        print("GPT2 output: ", res_gpt2)
+    

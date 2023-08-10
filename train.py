@@ -90,7 +90,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_path', type=str, default="D:\\Software\\Python\\PACSS\\project\\gpt2") # The model path of GPT2 when use GPT2
     parser.add_argument('--sequence_length', type=int, default=50) # GPT uses
     parser.add_argument('--save_path', type=str, default="D:\\Software\\Python\\PACSS\\project\\gpt2.pth") # The path to save the model
-    parser.add_argument('--use_saved', type=bool, default=False) # True if you used saved model arguments
+    parser.add_argument('--use_saved', type=bool, default=True) # True if you used saved model arguments
     args = parser.parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

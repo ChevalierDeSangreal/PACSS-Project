@@ -39,13 +39,13 @@ class TextDataset(Dataset):
             with open(args.data_path, 'r', encoding='utf-8') as f:
                 lines = f.readlines()
 
-            # Using _clean_line each line using the line method
-            # Condition line.strip() and self._clean_line(line.strip()) ensure that the line is not
+            # Using clean_line each line using the line method
+            # Condition line.strip() and self.clean_line(line.strip()) ensure that the line is not
             # only non empty, but also non empty after cleaning
-            self.lyrics = [self._clean_line(line.strip()) for line in lines if line.strip() and self._clean_line(line.strip())]
+            self.lyrics = [self.clean_line(line.strip()) for line in lines if line.strip() and self.clean_line(line.strip())]
             self.data_len = len(self.lyrics)
 
-    def _clean_line(self, line):
+    def clean_line(self, line):
         # Convert text to lowercase
         line = line.lower()
         # Using regular expressions to remove special characters
