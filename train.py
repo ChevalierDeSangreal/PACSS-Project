@@ -80,7 +80,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--lr', type=float, default=3e-5)
     parser.add_argument('--num_layer', type=int, default=1) # The number of hidden layers in the RNN
-    parser.add_argument('--num_epoch', type=int, default=3)
+    parser.add_argument('--num_epoch', type=int, default=1)
     parser.add_argument('--hidden_size', type=int, default=100) # The size of hidden layers in RNN
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--num_worker', type=int, default=4)
@@ -89,6 +89,8 @@ if __name__ == '__main__':
     parser.add_argument('--chunk_len', type=int, default=128) # The chunk size when using character RNN
     parser.add_argument('--model_path', type=str, default="D:\\Software\\Python\\PACSS\\project\\gpt2") # The model path of GPT2 when use GPT2
     parser.add_argument('--sequence_length', type=int, default=50) # GPT uses
+    parser.add_argument('--save_path', type=str, default="D:\\Software\\Python\\PACSS\\project\\gpt2.pth") # The path to save the model
+    parser.add_argument('--use_saved', type=bool, default=False) # True if you used saved model arguments
     args = parser.parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -99,47 +101,65 @@ if __name__ == '__main__':
         model = GPT2LMHeadModel.from_pretrained(args.model_path).to(device)
     else:
         parser.error(f"Invalid model option.")
-    
-
-    # Set the model to training mode
-    model.train()
 
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
 
-    # Create an Adam optimizer that will be used to update the weights of the model
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
-    if args.model_name == 'RNN':
-        # Define the Loss function, which is used to compare the output of the model
-        # with the real target in the training process
-        criterion = nn.CrossEntropyLoss()
-        time_start = time.time()
-        # Used to store the average loss per training cycle
-        all_losses = []
-        # Used to calculate the average loss for each training cycle
-        loss_avg = 0
-        # In the training cycle, the model will be trained and evaluated in each epoch
-        # Iteration is performed on each epoch
-        for epoch in range(1, args.num_epoch + 1):
-            # Select a random training sample in each epoch and perform one-step training
-            loss = rnn_train_epoch_batch(dataset, model, optimizer, criterion, device, epoch)
-            # Accumulate the losses for each epoch for subsequent calculation of average losses
-            loss_avg += loss
-            # For every 100 epochs, print the training progress and average loss, and then reset the average loss
-            if epoch % 100 == 0:
-                print('[%s (%d %d%%) %.4f]' % (time.time() - time_start, epoch, epoch / args.num_epoch * 100, loss))
-                all_losses.append(loss_avg / 100)
-                loss_avg = 0
+    if args.use_saved == False:
+        # Set the model to training mode
+        model.train()
 
-        prompt = 'are'
-        print(generate(prompt, model, device, dataset.index_to_char))
-        prompt = 'here'
-        print(generate(prompt, model, device, dataset.index_to_char))
-    elif args.model_name == 'GPT':
-        total_steps = len(dataloader) * args.num_epoch
-        scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=total_steps)
-        gpt_train(model, dataloader, optimizer, scheduler, device, args.num_epoch)
-        prompt = "fly"
-        new_lyrics = gpt_generate_lyrics(prompt, model, dataset.tokenizer, device)
-        print(new_lyrics)
-        new_lyrics = gpt_generate_lyrics(prompt, model, dataset.tokenizer, device)
-        print(new_lyrics)
+        # Create an Adam optimizer that will be used to update the weights of the model
+        optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+        if args.model_name == 'RNN':
+            # Define the Loss function, which is used to compare the output of the model
+            # with the real target in the training process
+            criterion = nn.CrossEntropyLoss()
+            time_start = time.time()
+            # Used to store the average loss per training cycle
+            all_losses = []
+            # Used to calculate the average loss for each training cycle
+            loss_avg = 0
+            # In the training cycle, the model will be trained and evaluated in each epoch
+            # Iteration is performed on each epoch
+            for epoch in range(1, args.num_epoch + 1):
+                # Select a random training sample in each epoch and perform one-step training
+                loss = rnn_train_epoch_batch(dataset, model, optimizer, criterion, device, epoch)
+                # Accumulate the losses for each epoch for subsequent calculation of average losses
+                loss_avg += loss
+                # For every 100 epochs, print the training progress and average loss, and then reset the average loss
+                if epoch % 100 == 0:
+                    print('[%s (%d %d%%) %.4f]' % (time.time() - time_start, epoch, epoch / args.num_epoch * 100, loss))
+                    all_losses.append(loss_avg / 100)
+                    loss_avg = 0
+
+            prompt = 'are'
+            print(generate(prompt, model, device, dataset.index_to_char))
+            prompt = 'here'
+            print(generate(prompt, model, device, dataset.index_to_char))
+        elif args.model_name == 'GPT':
+            total_steps = len(dataloader) * args.num_epoch
+            scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=total_steps)
+            gpt_train(model, dataloader, optimizer, scheduler, device, args.num_epoch)
+            prompt = "fly"
+            new_lyrics = gpt_generate_lyrics(prompt, model, dataset.tokenizer, device)
+            print(new_lyrics)
+            new_lyrics = gpt_generate_lyrics(prompt, model, dataset.tokenizer, device)
+            print(new_lyrics)
+
+        torch.save(model.state_dict(), args.save_path)
+    else:
+        model.load_state_dict(torch.load(args.save_path))
+        if args.model_name == 'RNN':
+
+            prompt = 'are'
+            print(generate(prompt, model, device, dataset.index_to_char))
+            prompt = 'here'
+            print(generate(prompt, model, device, dataset.index_to_char))
+
+        elif args.model_name == 'GPT':
+            prompt = "fly"
+            new_lyrics = gpt_generate_lyrics(prompt, model, dataset.tokenizer, device)
+            print(new_lyrics)
+            new_lyrics = gpt_generate_lyrics(prompt, model, dataset.tokenizer, device)
+            print(new_lyrics)
+
